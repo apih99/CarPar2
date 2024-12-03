@@ -1,9 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Table, Input, Card, Typography, Button, Space, message } from 'antd';
+import { Table, Input, Card, Typography, Button, Space, message, Tooltip } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
-import { PlusOutlined, DeleteOutlined, SaveOutlined, FileExcelOutlined } from '@ant-design/icons';
+import { PlusOutlined, DeleteOutlined, SaveOutlined, FileExcelOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import * as XLSX from 'xlsx';
 import { supabase } from '../lib/supabase';
 
@@ -31,6 +31,13 @@ interface StudentMarks {
   grade: string;
 }
 
+interface CLOPLOMapping {
+  quiz: number[];
+  assignment: number[];
+  test: number[];
+  final: number[];
+}
+
 const calculateGrade = (total: number): string => {
   if (total >= 89.5) return 'A+';  // 89.5 - 100  | EXCELLENT
   if (total >= 79.5) return 'A';   // 79.5 - 89.4 | EXCELLENT
@@ -47,48 +54,40 @@ const calculateGrade = (total: number): string => {
   return 'E';                      // 0 - 29.4    | FAIL
 };
 
-const CLO_NUMBERS = {
-  quiz: [1, 2, 3],
-  assignment: [1, 2, 3],
-  test: [1, 2, 3],
-  final: [1, 2, 3]
-};
-
-const PLO_NUMBERS = {
-  quiz: [6, 6, 7],
-  assignment: [6, 6, 7],
-  test: [6, 6, 7],
-  final: [6, 6, 7]
-};
-
-const getGradeColor = (grade: string): string => {
-  switch(grade) {
-    case 'A+':
-    case 'A':
-      return '#4CAF50'; // Green for EXCELLENT
-    case 'A-':
-    case 'B+':
-    case 'B':
-    case 'B-':
-    case 'C+':
-    case 'C':
-    case 'C-':
-      return '#2196F3'; // Blue for PASS
-    case 'D+':
-      return '#FFC107'; // Yellow for MINIMUM PASS
-    case 'D':
-    case 'D-':
-    case 'E':
-      return '#F44336'; // Red for FAIL
-    default:
-      return '#F44336'; // Red for any other case
-  }
-};
-
 export default function Home() {
   const [data, setData] = useState<StudentMarks[]>([]);
   const [loading, setLoading] = useState(false);
   const [messageApi, contextHolder] = message.useMessage();
+  
+  const [cloNumbers, setCloNumbers] = useState<CLOPLOMapping>({
+    quiz: [1, 2, 3],
+    assignment: [1, 2, 3],
+    test: [1, 2, 3],
+    final: [1, 2, 3]
+  });
+  
+  const [ploNumbers, setPloNumbers] = useState<CLOPLOMapping>({
+    quiz: [6, 6, 7],
+    assignment: [6, 6, 7],
+    test: [6, 6, 7],
+    final: [6, 6, 7]
+  });
+
+  const handleCLOChange = (assessmentType: keyof CLOPLOMapping, index: number, value: string) => {
+    const newValue = parseInt(value) || 0;
+    setCloNumbers(prev => ({
+      ...prev,
+      [assessmentType]: prev[assessmentType].map((num, i) => i === index ? newValue : num)
+    }));
+  };
+
+  const handlePLOChange = (assessmentType: keyof CLOPLOMapping, index: number, value: string) => {
+    const newValue = parseInt(value) || 0;
+    setPloNumbers(prev => ({
+      ...prev,
+      [assessmentType]: prev[assessmentType].map((num, i) => i === index ? newValue : num)
+    }));
+  };
 
   const handleMarkChange = (key: string, field: string, value: string) => {
     const newValue = parseFloat(value) || 0;
@@ -176,291 +175,122 @@ export default function Home() {
     });
   };
 
+  const getAssessmentColumn = (
+    title: string,
+    type: keyof CLOPLOMapping,
+    children: { dataIndex: string; maxMark: number }[]
+  ) => ({
+    title: () => (
+      <div className="space-y-2">
+        <div className="font-bold">{title}</div>
+        <div className="grid grid-cols-3 gap-2">
+          {children.map((_, index) => (
+            <div key={index} className="text-center">
+              <div className="text-xs mb-1">{index + 1}</div>
+              <div className="space-y-1">
+                <Tooltip title="Course Learning Outcome">
+                  <Input
+                    size="small"
+                    prefix={<InfoCircleOutlined className="text-gray-400" />}
+                    value={cloNumbers[type][index]}
+                    onChange={(e) => handleCLOChange(type, index, e.target.value)}
+                    className="w-16"
+                    placeholder="CLO"
+                  />
+                </Tooltip>
+                <Tooltip title="Programme Learning Outcome">
+                  <Input
+                    size="small"
+                    prefix={<InfoCircleOutlined className="text-gray-400" />}
+                    value={ploNumbers[type][index]}
+                    onChange={(e) => handlePLOChange(type, index, e.target.value)}
+                    className="w-16"
+                    placeholder="PLO"
+                  />
+                </Tooltip>
+              </div>
+            </div>
+          ))}
+        </div>
+        <div className="font-bold">ALLOCATED MARKS</div>
+      </div>
+    ),
+    children: children.map((child, index) => ({
+      title: `${index + 1}`,
+      dataIndex: child.dataIndex,
+      width: 60,
+      render: (text: number, record: StudentMarks) => (
+        <Input
+          type="number"
+          value={text}
+          onChange={(e) => handleMarkChange(record.key, child.dataIndex, e.target.value)}
+          min={0}
+          max={child.maxMark}
+        />
+      )
+    }))
+  });
+
   const columns: ColumnsType<StudentMarks> = [
-    { 
+    {
       title: 'NO.',
       dataIndex: 'no',
       width: 60,
       fixed: 'left'
     },
-    { 
+    {
       title: 'NAME OF STUDENT',
       dataIndex: 'name',
       width: 250,
-      fixed: 'left',
-      render: (text, record) => (
-        <Input
-          value={text}
-          onChange={(e) => handleNameChange(record.key, e.target.value)}
-          placeholder="Enter student name"
-        />
-      )
+      fixed: 'left'
+    },
+    getAssessmentColumn('QUIZ - 10%', 'quiz', [
+      { dataIndex: 'quiz1', maxMark: 10 },
+      { dataIndex: 'quiz2', maxMark: 10 },
+      { dataIndex: 'quiz3', maxMark: 10 }
+    ]),
+    getAssessmentColumn('ASSIGNMENT - 20%', 'assignment', [
+      { dataIndex: 'assignment1', maxMark: 20 },
+      { dataIndex: 'assignment2', maxMark: 20 },
+      { dataIndex: 'assignment3', maxMark: 20 }
+    ]),
+    getAssessmentColumn('TEST - 20%', 'test', [
+      { dataIndex: 'test1', maxMark: 20 },
+      { dataIndex: 'test2', maxMark: 20 },
+      { dataIndex: 'test3', maxMark: 20 }
+    ]),
+    {
+      title: 'CARRY MARKS',
+      dataIndex: 'carryMarks',
+      width: 100,
+      render: (text) => text.toFixed(2)
+    },
+    getAssessmentColumn('FINAL - 40%', 'final', [
+      { dataIndex: 'final1', maxMark: 40 },
+      { dataIndex: 'final2', maxMark: 40 },
+      { dataIndex: 'final3', maxMark: 40 }
+    ]),
+    {
+      title: 'TOTAL',
+      dataIndex: 'total',
+      width: 80,
+      render: (text) => text.toFixed(2)
     },
     {
-      title: () => (
-        <>
-          <div className="font-bold">COURSE LEARNING OUTCOMES (CLO)</div>
-          <div className="font-bold">PROGRAMME LEARNING OUTCOMES (PLO)</div>
-          <div className="font-bold">ALLOCATED MARKS</div>
-        </>
-      ),
-      children: [
-        {
-          title: () => (
-            <div>
-              <div>QUIZ 1 - 10%</div>
-              <div className="text-xs">
-                CLO: {CLO_NUMBERS.quiz.join(', ')}
-                <br />
-                PLO: {PLO_NUMBERS.quiz.join(', ')}
-              </div>
-            </div>
-          ),
-          children: [
-            {
-              title: '1',
-              dataIndex: 'quiz1',
-              width: 60,
-              render: (text, record) => (
-                <Input
-                  type="number"
-                  value={text}
-                  onChange={(e) => handleMarkChange(record.key, 'quiz1', e.target.value)}
-                  min={0}
-                  max={10}
-                />
-              ),
-            },
-            {
-              title: '2',
-              dataIndex: 'quiz2',
-              width: 60,
-              render: (text, record) => (
-                <Input
-                  type="number"
-                  value={text}
-                  onChange={(e) => handleMarkChange(record.key, 'quiz2', e.target.value)}
-                  min={0}
-                  max={10}
-                />
-              ),
-            },
-            {
-              title: '3',
-              dataIndex: 'quiz3',
-              width: 60,
-              render: (text, record) => (
-                <Input
-                  type="number"
-                  value={text}
-                  onChange={(e) => handleMarkChange(record.key, 'quiz3', e.target.value)}
-                  min={0}
-                  max={10}
-                />
-              ),
-            }
-          ]
-        },
-        {
-          title: () => (
-            <div>
-              <div>ASSIGNMENT 1 - 20%</div>
-              <div className="text-xs">
-                CLO: {CLO_NUMBERS.assignment.join(', ')}
-                <br />
-                PLO: {PLO_NUMBERS.assignment.join(', ')}
-              </div>
-            </div>
-          ),
-          children: [
-            {
-              title: '1',
-              dataIndex: 'assignment1',
-              width: 60,
-              render: (text, record) => (
-                <Input
-                  type="number"
-                  value={text}
-                  onChange={(e) => handleMarkChange(record.key, 'assignment1', e.target.value)}
-                  min={0}
-                  max={20}
-                />
-              ),
-            },
-            {
-              title: '2',
-              dataIndex: 'assignment2',
-              width: 60,
-              render: (text, record) => (
-                <Input
-                  type="number"
-                  value={text}
-                  onChange={(e) => handleMarkChange(record.key, 'assignment2', e.target.value)}
-                  min={0}
-                  max={20}
-                />
-              ),
-            },
-            {
-              title: '3',
-              dataIndex: 'assignment3',
-              width: 60,
-              render: (text, record) => (
-                <Input
-                  type="number"
-                  value={text}
-                  onChange={(e) => handleMarkChange(record.key, 'assignment3', e.target.value)}
-                  min={0}
-                  max={20}
-                />
-              ),
-            }
-          ]
-        },
-        {
-          title: () => (
-            <div>
-              <div>TEST - 20%</div>
-              <div className="text-xs">
-                CLO: {CLO_NUMBERS.test.join(', ')}
-                <br />
-                PLO: {PLO_NUMBERS.test.join(', ')}
-              </div>
-            </div>
-          ),
-          children: [
-            {
-              title: '1',
-              dataIndex: 'test1',
-              width: 60,
-              render: (text, record) => (
-                <Input
-                  type="number"
-                  value={text}
-                  onChange={(e) => handleMarkChange(record.key, 'test1', e.target.value)}
-                  min={0}
-                  max={20}
-                />
-              ),
-            },
-            {
-              title: '2',
-              dataIndex: 'test2',
-              width: 60,
-              render: (text, record) => (
-                <Input
-                  type="number"
-                  value={text}
-                  onChange={(e) => handleMarkChange(record.key, 'test2', e.target.value)}
-                  min={0}
-                  max={20}
-                />
-              ),
-            },
-            {
-              title: '3',
-              dataIndex: 'test3',
-              width: 60,
-              render: (text, record) => (
-                <Input
-                  type="number"
-                  value={text}
-                  onChange={(e) => handleMarkChange(record.key, 'test3', e.target.value)}
-                  min={0}
-                  max={20}
-                />
-              ),
-            }
-          ]
-        },
-        {
-          title: 'CARRY MARKS',
-          dataIndex: 'carryMarks',
-          width: 100,
-          render: (text) => text.toFixed(2),
-        },
-        {
-          title: () => (
-            <div>
-              <div>FINAL - 40%</div>
-              <div className="text-xs">
-                CLO: {CLO_NUMBERS.final.join(', ')}
-                <br />
-                PLO: {PLO_NUMBERS.final.join(', ')}
-              </div>
-            </div>
-          ),
-          children: [
-            {
-              title: '1',
-              dataIndex: 'final1',
-              width: 60,
-              render: (text, record) => (
-                <Input
-                  type="number"
-                  value={text}
-                  onChange={(e) => handleMarkChange(record.key, 'final1', e.target.value)}
-                  min={0}
-                  max={40}
-                />
-              ),
-            },
-            {
-              title: '2',
-              dataIndex: 'final2',
-              width: 60,
-              render: (text, record) => (
-                <Input
-                  type="number"
-                  value={text}
-                  onChange={(e) => handleMarkChange(record.key, 'final2', e.target.value)}
-                  min={0}
-                  max={40}
-                />
-              ),
-            },
-            {
-              title: '3',
-              dataIndex: 'final3',
-              width: 60,
-              render: (text, record) => (
-                <Input
-                  type="number"
-                  value={text}
-                  onChange={(e) => handleMarkChange(record.key, 'final3', e.target.value)}
-                  min={0}
-                  max={40}
-                />
-              ),
-            }
-          ]
-        },
-        {
-          title: 'TOTAL',
-          dataIndex: 'total',
-          width: 80,
-          render: (text) => text.toFixed(2),
-        },
-        {
-          title: 'OVERALL TOTAL',
-          dataIndex: 'overallTotal',
-          width: 100,
-          render: (text) => text.toFixed(2),
-        },
-        {
-          title: 'GRADE',
-          dataIndex: 'grade',
-          width: 80,
-          render: (text) => (
-            <div style={{ 
-              fontWeight: 'bold',
-              color: getGradeColor(text)
-            }}>
-              {text}
-            </div>
-          ),
-        }
-      ]
+      title: 'OVERALL TOTAL',
+      dataIndex: 'overallTotal',
+      width: 100,
+      render: (text) => text.toFixed(2)
+    },
+    {
+      title: 'GRADE',
+      dataIndex: 'grade',
+      width: 80,
+      render: (text) => (
+        <div style={{ fontWeight: 'bold', color: getGradeColor(text) }}>
+          {text}
+        </div>
+      )
     }
   ];
 
@@ -572,8 +402,14 @@ export default function Home() {
   const saveToDatabase = async () => {
     try {
       setLoading(true);
+      
+      // Calculate normalized values
+      const normalize = (value: number, maxMark: number) => 
+        value === 0 ? 0 : parseFloat((value / maxMark).toFixed(2));
+
       const marksData = data.map(item => ({
         student_name: item.name,
+        // Raw marks
         quiz1: item.quiz1,
         quiz2: item.quiz2,
         quiz3: item.quiz3,
@@ -589,7 +425,46 @@ export default function Home() {
         carry_marks: item.carryMarks,
         total: item.total,
         overall_total: item.overallTotal,
-        grade: item.grade
+        grade: item.grade,
+        // Normalized values
+        normalized_quiz1: normalize(item.quiz1, 10),
+        normalized_quiz2: normalize(item.quiz2, 10),
+        normalized_quiz3: normalize(item.quiz3, 10),
+        normalized_assignment1: normalize(item.assignment1, 20),
+        normalized_assignment2: normalize(item.assignment2, 20),
+        normalized_assignment3: normalize(item.assignment3, 20),
+        normalized_test1: normalize(item.test1, 20),
+        normalized_test2: normalize(item.test2, 20),
+        normalized_test3: normalize(item.test3, 20),
+        normalized_final1: normalize(item.final1, 40),
+        normalized_final2: normalize(item.final2, 40),
+        normalized_final3: normalize(item.final3, 40),
+        // CLO mappings
+        clo_quiz1: cloNumbers.quiz[0],
+        clo_quiz2: cloNumbers.quiz[1],
+        clo_quiz3: cloNumbers.quiz[2],
+        clo_assignment1: cloNumbers.assignment[0],
+        clo_assignment2: cloNumbers.assignment[1],
+        clo_assignment3: cloNumbers.assignment[2],
+        clo_test1: cloNumbers.test[0],
+        clo_test2: cloNumbers.test[1],
+        clo_test3: cloNumbers.test[2],
+        clo_final1: cloNumbers.final[0],
+        clo_final2: cloNumbers.final[1],
+        clo_final3: cloNumbers.final[2],
+        // PLO mappings
+        plo_quiz1: ploNumbers.quiz[0],
+        plo_quiz2: ploNumbers.quiz[1],
+        plo_quiz3: ploNumbers.quiz[2],
+        plo_assignment1: ploNumbers.assignment[0],
+        plo_assignment2: ploNumbers.assignment[1],
+        plo_assignment3: ploNumbers.assignment[2],
+        plo_test1: ploNumbers.test[0],
+        plo_test2: ploNumbers.test[1],
+        plo_test3: ploNumbers.test[2],
+        plo_final1: ploNumbers.final[0],
+        plo_final2: ploNumbers.final[1],
+        plo_final3: ploNumbers.final[2]
       }));
 
       const { error } = await supabase
@@ -609,8 +484,13 @@ export default function Home() {
   // Add export to Excel function
   const exportToExcel = () => {
     try {
+      // Calculate normalized values
+      const normalize = (value: number, maxMark: number) => 
+        value === 0 ? 0 : parseFloat((value / maxMark).toFixed(2));
+
       const exportData = data.map(item => ({
         'Student Name': item.name,
+        // Raw Marks
         'Quiz 1': item.quiz1,
         'Quiz 2': item.quiz2,
         'Quiz 3': item.quiz3,
@@ -626,12 +506,57 @@ export default function Home() {
         'Final 3': item.final3,
         'Total': item.total,
         'Overall Total': item.overallTotal,
-        'Grade': item.grade
+        'Grade': item.grade,
+        // Normalized Values
+        'Normalized Quiz 1': normalize(item.quiz1, 10),
+        'Normalized Quiz 2': normalize(item.quiz2, 10),
+        'Normalized Quiz 3': normalize(item.quiz3, 10),
+        'Normalized Assignment 1': normalize(item.assignment1, 20),
+        'Normalized Assignment 2': normalize(item.assignment2, 20),
+        'Normalized Assignment 3': normalize(item.assignment3, 20),
+        'Normalized Test 1': normalize(item.test1, 20),
+        'Normalized Test 2': normalize(item.test2, 20),
+        'Normalized Test 3': normalize(item.test3, 20),
+        'Normalized Final 1': normalize(item.final1, 40),
+        'Normalized Final 2': normalize(item.final2, 40),
+        'Normalized Final 3': normalize(item.final3, 40),
+        // CLO Mappings
+        'CLO Quiz 1': cloNumbers.quiz[0],
+        'CLO Quiz 2': cloNumbers.quiz[1],
+        'CLO Quiz 3': cloNumbers.quiz[2],
+        'CLO Assignment 1': cloNumbers.assignment[0],
+        'CLO Assignment 2': cloNumbers.assignment[1],
+        'CLO Assignment 3': cloNumbers.assignment[2],
+        'CLO Test 1': cloNumbers.test[0],
+        'CLO Test 2': cloNumbers.test[1],
+        'CLO Test 3': cloNumbers.test[2],
+        'CLO Final 1': cloNumbers.final[0],
+        'CLO Final 2': cloNumbers.final[1],
+        'CLO Final 3': cloNumbers.final[2],
+        // PLO Mappings
+        'PLO Quiz 1': ploNumbers.quiz[0],
+        'PLO Quiz 2': ploNumbers.quiz[1],
+        'PLO Quiz 3': ploNumbers.quiz[2],
+        'PLO Assignment 1': ploNumbers.assignment[0],
+        'PLO Assignment 2': ploNumbers.assignment[1],
+        'PLO Assignment 3': ploNumbers.assignment[2],
+        'PLO Test 1': ploNumbers.test[0],
+        'PLO Test 2': ploNumbers.test[1],
+        'PLO Test 3': ploNumbers.test[2],
+        'PLO Final 1': ploNumbers.final[0],
+        'PLO Final 2': ploNumbers.final[1],
+        'PLO Final 3': ploNumbers.final[2]
       }));
 
       const ws = XLSX.utils.json_to_sheet(exportData);
       const wb = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(wb, ws, 'Student Marks');
+
+      // Auto-size columns
+      const colWidths = Object.keys(exportData[0] || {}).map(key => ({
+        wch: Math.max(key.length, 15)
+      }));
+      ws['!cols'] = colWidths;
 
       XLSX.writeFile(wb, 'student_marks.xlsx');
       messageApi.success('Marks exported successfully!');
