@@ -54,6 +54,30 @@ const calculateGrade = (total: number): string => {
   return 'E';                      // 0 - 29.4    | FAIL
 };
 
+const getGradeColor = (grade: string): string => {
+    switch(grade) {
+      case 'A+':
+      case 'A':
+        return '#4CAF50'; // Green for EXCELLENT
+      case 'A-':
+      case 'B+':
+      case 'B':
+      case 'B-':
+      case 'C+':
+      case 'C':
+      case 'C-':
+        return '#2196F3'; // Blue for PASS
+      case 'D+':
+        return '#FFC107'; // Yellow for MINIMUM PASS
+      case 'D':
+      case 'D-':
+      case 'E':
+        return '#F44336'; // Red for FAIL
+      default:
+        return '#F44336'; // Red for any other case
+    }
+  };
+  
 export default function Home() {
   const [data, setData] = useState<StudentMarks[]>([]);
   const [loading, setLoading] = useState(false);
