@@ -11,10 +11,12 @@
   "dependencies": {
     "@ant-design/icons": "^5.2.6",
     "@ant-design/nextjs-registry": "^1.0.0",
+    "@supabase/supabase-js": "^2.46.2",
     "antd": "^5.11.5",
     "next": "14.0.3",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0"
+    "react-dom": "^18.2.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/node": "^20.10.3",
