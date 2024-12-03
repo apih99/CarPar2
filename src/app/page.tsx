@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Table, Input, Card, Typography, Button, Space, message, Tooltip } from 'antd';
+import { Table, Input, Card, Typography, Button, Space, message, Tooltip, Descriptions } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, DeleteOutlined, SaveOutlined, FileExcelOutlined, InfoCircleOutlined } from '@ant-design/icons';
 import * as XLSX from 'xlsx';
@@ -36,6 +36,15 @@ interface CLOPLOMapping {
   assignment: number[];
   test: number[];
   final: number[];
+}
+
+interface CourseInfo {
+  programName: string;
+  courseName: string;
+  courseCode: string;
+  lecturerName: string;
+  semester: string;
+  academicSession: string;
 }
 
 const calculateGrade = (total: number): string => {
@@ -96,6 +105,22 @@ export default function Home() {
     test: [6, 6, 7],
     final: [6, 6, 7]
   });
+
+  const [courseInfo, setCourseInfo] = useState<CourseInfo>({
+    programName: '',
+    courseName: '',
+    courseCode: '',
+    lecturerName: '',
+    semester: '',
+    academicSession: ''
+  });
+
+  const handleCourseInfoChange = (field: keyof CourseInfo, value: string) => {
+    setCourseInfo(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
 
   const handleCLOChange = (assessmentType: keyof CLOPLOMapping, index: number, value: string) => {
     const newValue = parseInt(value) || 0;
@@ -619,6 +644,54 @@ export default function Home() {
           </Button>
         </div>
       </div>
+
+      <Card className="mb-4">
+        <Descriptions bordered column={2} size="small" layout="vertical">
+          <Descriptions.Item label="PROGRAMME NAME" span={2}>
+            <Input
+              value={courseInfo.programName}
+              onChange={e => handleCourseInfoChange('programName', e.target.value)}
+              placeholder="Enter programme name"
+            />
+          </Descriptions.Item>
+          <Descriptions.Item label="COURSE NAME">
+            <Input
+              value={courseInfo.courseName}
+              onChange={e => handleCourseInfoChange('courseName', e.target.value)}
+              placeholder="Enter course name"
+            />
+          </Descriptions.Item>
+          <Descriptions.Item label="COURSE CODE">
+            <Input
+              value={courseInfo.courseCode}
+              onChange={e => handleCourseInfoChange('courseCode', e.target.value)}
+              placeholder="Enter course code"
+            />
+          </Descriptions.Item>
+          <Descriptions.Item label="LECTURER'S NAME">
+            <Input
+              value={courseInfo.lecturerName}
+              onChange={e => handleCourseInfoChange('lecturerName', e.target.value)}
+              placeholder="Enter lecturer's name"
+            />
+          </Descriptions.Item>
+          <Descriptions.Item label="SEMESTER">
+            <Input
+              value={courseInfo.semester}
+              onChange={e => handleCourseInfoChange('semester', e.target.value)}
+              placeholder="Enter semester"
+            />
+          </Descriptions.Item>
+          <Descriptions.Item label="ACADEMIC SESSION" span={2}>
+            <Input
+              value={courseInfo.academicSession}
+              onChange={e => handleCourseInfoChange('academicSession', e.target.value)}
+              placeholder="Enter academic session"
+            />
+          </Descriptions.Item>
+        </Descriptions>
+      </Card>
+
       <Card>
         <Table 
           columns={columns} 
