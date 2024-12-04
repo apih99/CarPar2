@@ -286,7 +286,14 @@ export default function Markentry() {
       title: 'NAME OF STUDENT',
       dataIndex: 'name',
       width: 250,
-      fixed: 'left'
+      fixed: 'left',
+      render: (text: string, record: StudentMarks) => (
+        <Input
+          value={text}
+          onChange={(e) => handleNameChange(record.key, e.target.value)}
+          placeholder="Enter student name"
+        />
+      )
     },
     getAssessmentColumn('QUIZ - 10%', 'quiz', [
       { dataIndex: 'quiz1', maxMark: 10 },
@@ -338,106 +345,154 @@ export default function Markentry() {
     }
   ];
 
-  const summary = (currentData: readonly StudentMarks[]) => {
-    const totalStudents = currentData.length;
-    
-    // Calculate totals
-    const totals = {
-      quiz1: currentData.reduce((acc, curr) => acc + curr.quiz1, 0),
-      quiz2: currentData.reduce((acc, curr) => acc + curr.quiz2, 0),
-      quiz3: currentData.reduce((acc, curr) => acc + curr.quiz3, 0),
-      assignment1: currentData.reduce((acc, curr) => acc + curr.assignment1, 0),
-      assignment2: currentData.reduce((acc, curr) => acc + curr.assignment2, 0),
-      assignment3: currentData.reduce((acc, curr) => acc + curr.assignment3, 0),
-      test1: currentData.reduce((acc, curr) => acc + curr.test1, 0),
-      test2: currentData.reduce((acc, curr) => acc + curr.test2, 0),
-      test3: currentData.reduce((acc, curr) => acc + curr.test3, 0),
-      carryMarks: currentData.reduce((acc, curr) => acc + curr.carryMarks, 0),
-      final1: currentData.reduce((acc, curr) => acc + curr.final1, 0),
-      final2: currentData.reduce((acc, curr) => acc + curr.final2, 0),
-      final3: currentData.reduce((acc, curr) => acc + curr.final3, 0),
-      total: currentData.reduce((acc, curr) => acc + curr.total, 0),
-      overallTotal: currentData.reduce((acc, curr) => acc + curr.overallTotal, 0),
+  const normalize = (value: number, maxMark: number) => {
+    if (value === 0) return 0;
+    const average = value / (data.length || 1); // Calculate average
+    return parseFloat((average / maxMark).toFixed(2)); // Normalize by dividing average by max mark
+  };
+
+  const summary = (pageData: readonly StudentMarks[]) => {
+    const totals = pageData.reduce((acc, curr) => ({
+      quiz1: acc.quiz1 + curr.quiz1,
+      quiz2: acc.quiz2 + curr.quiz2,
+      quiz3: acc.quiz3 + curr.quiz3,
+      assignment1: acc.assignment1 + curr.assignment1,
+      assignment2: acc.assignment2 + curr.assignment2,
+      assignment3: acc.assignment3 + curr.assignment3,
+      test1: acc.test1 + curr.test1,
+      test2: acc.test2 + curr.test2,
+      test3: acc.test3 + curr.test3,
+      carryMarks: acc.carryMarks + curr.carryMarks,
+      final1: acc.final1 + curr.final1,
+      final2: acc.final2 + curr.final2,
+      final3: acc.final3 + curr.final3,
+      total: acc.total + curr.total,
+      overallTotal: acc.overallTotal + curr.overallTotal
+    }), {
+      quiz1: 0, quiz2: 0, quiz3: 0,
+      assignment1: 0, assignment2: 0, assignment3: 0,
+      test1: 0, test2: 0, test3: 0,
+      carryMarks: 0,
+      final1: 0, final2: 0, final3: 0,
+      total: 0,
+      overallTotal: 0
+    });
+
+    const getPercentage = (value: number, maxMark: number, weightage: number, isFinal: boolean = false) => {
+      if (value === 0) return 0;
+      const average = value / (pageData.length || 1); // Get the average value
+      // For final exam, divide weightage by 3 since it involves all CLOs
+      // For others (quiz, test, assignment), use full weightage as they belong to one CLO
+      const actualWeightage = isFinal ? weightage / 3 : weightage;
+      return Math.round((average / maxMark) * actualWeightage);
     };
 
-    // Calculate averages
-    const averages = Object.entries(totals).reduce((acc, [key, value]) => ({
-      ...acc,
-      [key]: value / totalStudents
-    }), {} as typeof totals);
+    const normalize = (value: number, maxMark: number) => {
+      if (value === 0) return 0;
+      const average = value / (pageData.length || 1);
+      return parseFloat((average / maxMark).toFixed(2));
+    };
 
-    // Calculate percentages
-    const getPercentage = (value: number, maxMark: number) => 
-      ((value / (totalStudents * maxMark)) * 100).toFixed(0);
-
-    // Calculate normalized scores
-    const normalize = (value: number, maxMark: number) => 
-      value === 0 ? 0 : (value / (totalStudents * maxMark)).toFixed(2);
-
-    
-    return(
-        <Table.Summary fixed>
+    return (
+      <Table.Summary>
         <Table.Summary.Row>
-          <Table.Summary.Cell index={0} colSpan={2}>OVERALL TOTAL</Table.Summary.Cell>
-          {Object.values(totals).map((value, index) => (
-            <Table.Summary.Cell key={index} index={index + 2}>
-              {value.toFixed(2)}
-            </Table.Summary.Cell>
-          ))}
-        </Table.Summary.Row>
-        <Table.Summary.Row>
-          <Table.Summary.Cell index={0} colSpan={2}>NO. OF STUDENTS</Table.Summary.Cell>
-          {Object.keys(totals).map((_, index) => (
-            <Table.Summary.Cell key={index} index={index + 2}>
-              {totalStudents}
-            </Table.Summary.Cell>
-          ))}
-        </Table.Summary.Row>
-        <Table.Summary.Row>
-          <Table.Summary.Cell index={0} colSpan={2}>AVERAGE</Table.Summary.Cell>
-          {Object.values(averages).map((value, index) => (
-            <Table.Summary.Cell key={index} index={index + 2}>
-              {value.toFixed(2)}
-            </Table.Summary.Cell>
-          ))}
-        </Table.Summary.Row>
-        <Table.Summary.Row>
-          <Table.Summary.Cell index={0} colSpan={2}>PERCENTAGE</Table.Summary.Cell>
-          <Table.Summary.Cell index={2}>{getPercentage(totals.quiz1, 10)}%</Table.Summary.Cell>
-          <Table.Summary.Cell index={3}>{getPercentage(totals.quiz2, 10)}%</Table.Summary.Cell>
-          <Table.Summary.Cell index={4}>{getPercentage(totals.quiz3, 10)}%</Table.Summary.Cell>
-          <Table.Summary.Cell index={5}>{getPercentage(totals.assignment1, 20)}%</Table.Summary.Cell>
-          <Table.Summary.Cell index={6}>{getPercentage(totals.assignment2, 20)}%</Table.Summary.Cell>
-          <Table.Summary.Cell index={7}>{getPercentage(totals.assignment3, 20)}%</Table.Summary.Cell>
-          <Table.Summary.Cell index={8}>{getPercentage(totals.test1, 20)}%</Table.Summary.Cell>
-          <Table.Summary.Cell index={9}>{getPercentage(totals.test2, 20)}%</Table.Summary.Cell>
-          <Table.Summary.Cell index={10}>{getPercentage(totals.test3, 20)}%</Table.Summary.Cell>
-          <Table.Summary.Cell index={11}>{getPercentage(totals.carryMarks, 60)}%</Table.Summary.Cell>
-          <Table.Summary.Cell index={12}>{getPercentage(totals.final1, 40)}%</Table.Summary.Cell>
-          <Table.Summary.Cell index={13}>{getPercentage(totals.final2, 40)}%</Table.Summary.Cell>
-          <Table.Summary.Cell index={14}>{getPercentage(totals.final3, 40)}%</Table.Summary.Cell>
-          <Table.Summary.Cell index={15}></Table.Summary.Cell>
+          <Table.Summary.Cell index={0}>OVERALL TOTAL</Table.Summary.Cell>
+          <Table.Summary.Cell index={1}>{totals.quiz1.toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={2}>{totals.quiz2.toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={3}>{totals.quiz3.toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={4}>{totals.assignment1.toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={5}>{totals.assignment2.toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={6}>{totals.assignment3.toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={7}>{totals.test1.toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={8}>{totals.test2.toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={9}>{totals.test3.toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={10}>{totals.carryMarks.toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={11}>{totals.final1.toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={12}>{totals.final2.toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={13}>{totals.final3.toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={14}>{totals.total.toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={15}>{totals.overallTotal.toFixed(2)}</Table.Summary.Cell>
           <Table.Summary.Cell index={16}></Table.Summary.Cell>
-          <Table.Summary.Cell index={17}></Table.Summary.Cell>
         </Table.Summary.Row>
+
         <Table.Summary.Row>
-          <Table.Summary.Cell index={0} colSpan={2}>NORMALIZE</Table.Summary.Cell>
-          <Table.Summary.Cell index={2}>{normalize(totals.quiz1, 10)}</Table.Summary.Cell>
-          <Table.Summary.Cell index={3}>{normalize(totals.quiz2, 10)}</Table.Summary.Cell>
-          <Table.Summary.Cell index={4}>{normalize(totals.quiz3, 10)}</Table.Summary.Cell>
-          <Table.Summary.Cell index={5}>{normalize(totals.assignment1, 20)}</Table.Summary.Cell>
-          <Table.Summary.Cell index={6}>{normalize(totals.assignment2, 20)}</Table.Summary.Cell>
-          <Table.Summary.Cell index={7}>{normalize(totals.assignment3, 20)}</Table.Summary.Cell>
-          <Table.Summary.Cell index={8}>{normalize(totals.test1, 20)}</Table.Summary.Cell>
-          <Table.Summary.Cell index={9}>{normalize(totals.test2, 20)}</Table.Summary.Cell>
-          <Table.Summary.Cell index={10}>{normalize(totals.test3, 20)}</Table.Summary.Cell>
-          <Table.Summary.Cell index={11}>{normalize(totals.carryMarks, 60)}</Table.Summary.Cell>
-          <Table.Summary.Cell index={12}>{normalize(totals.final1, 40)}</Table.Summary.Cell>
-          <Table.Summary.Cell index={13}>{normalize(totals.final2, 40)}</Table.Summary.Cell>
-          <Table.Summary.Cell index={14}>{normalize(totals.final3, 40)}</Table.Summary.Cell>
-          <Table.Summary.Cell index={15}></Table.Summary.Cell>
+          <Table.Summary.Cell index={0}>NO. OF STUDENTS</Table.Summary.Cell>
+          <Table.Summary.Cell index={1}>{pageData.length}</Table.Summary.Cell>
+          <Table.Summary.Cell index={2}>{pageData.length}</Table.Summary.Cell>
+          <Table.Summary.Cell index={3}>{pageData.length}</Table.Summary.Cell>
+          <Table.Summary.Cell index={4}>{pageData.length}</Table.Summary.Cell>
+          <Table.Summary.Cell index={5}>{pageData.length}</Table.Summary.Cell>
+          <Table.Summary.Cell index={6}>{pageData.length}</Table.Summary.Cell>
+          <Table.Summary.Cell index={7}>{pageData.length}</Table.Summary.Cell>
+          <Table.Summary.Cell index={8}>{pageData.length}</Table.Summary.Cell>
+          <Table.Summary.Cell index={9}>{pageData.length}</Table.Summary.Cell>
+          <Table.Summary.Cell index={10}>{pageData.length}</Table.Summary.Cell>
+          <Table.Summary.Cell index={11}>{pageData.length}</Table.Summary.Cell>
+          <Table.Summary.Cell index={12}>{pageData.length}</Table.Summary.Cell>
+          <Table.Summary.Cell index={13}>{pageData.length}</Table.Summary.Cell>
+          <Table.Summary.Cell index={14}>{pageData.length}</Table.Summary.Cell>
+          <Table.Summary.Cell index={15}>{pageData.length}</Table.Summary.Cell>
           <Table.Summary.Cell index={16}></Table.Summary.Cell>
-          <Table.Summary.Cell index={17}></Table.Summary.Cell>
+        </Table.Summary.Row>
+
+        <Table.Summary.Row>
+          <Table.Summary.Cell index={0}>AVERAGE</Table.Summary.Cell>
+          <Table.Summary.Cell index={1}>{(totals.quiz1 / pageData.length).toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={2}>{(totals.quiz2 / pageData.length).toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={3}>{(totals.quiz3 / pageData.length).toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={4}>{(totals.assignment1 / pageData.length).toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={5}>{(totals.assignment2 / pageData.length).toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={6}>{(totals.assignment3 / pageData.length).toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={7}>{(totals.test1 / pageData.length).toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={8}>{(totals.test2 / pageData.length).toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={9}>{(totals.test3 / pageData.length).toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={10}>{(totals.carryMarks / pageData.length).toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={11}>{(totals.final1 / pageData.length).toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={12}>{(totals.final2 / pageData.length).toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={13}>{(totals.final3 / pageData.length).toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={14}>{(totals.total / pageData.length).toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={15}>{(totals.overallTotal / pageData.length).toFixed(2)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={16}></Table.Summary.Cell>
+        </Table.Summary.Row>
+
+        <Table.Summary.Row>
+          <Table.Summary.Cell index={0}>PERCENTAGE</Table.Summary.Cell>
+          <Table.Summary.Cell index={1}>{getPercentage(totals.quiz1, 10, 10)}%</Table.Summary.Cell>
+          <Table.Summary.Cell index={2}>{getPercentage(totals.quiz2, 10, 10)}%</Table.Summary.Cell>
+          <Table.Summary.Cell index={3}>{getPercentage(totals.quiz3, 10, 10)}%</Table.Summary.Cell>
+          <Table.Summary.Cell index={4}>{getPercentage(totals.assignment1, 20, 20)}%</Table.Summary.Cell>
+          <Table.Summary.Cell index={5}>{getPercentage(totals.assignment2, 20, 20)}%</Table.Summary.Cell>
+          <Table.Summary.Cell index={6}>{getPercentage(totals.assignment3, 20, 20)}%</Table.Summary.Cell>
+          <Table.Summary.Cell index={7}>{getPercentage(totals.test1, 20, 20)}%</Table.Summary.Cell>
+          <Table.Summary.Cell index={8}>{getPercentage(totals.test2, 20, 20)}%</Table.Summary.Cell>
+          <Table.Summary.Cell index={9}>{getPercentage(totals.test3, 20, 20)}%</Table.Summary.Cell>
+          <Table.Summary.Cell index={10}>{getPercentage(totals.carryMarks, 60, 50)}%</Table.Summary.Cell>
+          <Table.Summary.Cell index={11}>{getPercentage(totals.final1, 40, 40, true)}%</Table.Summary.Cell>
+          <Table.Summary.Cell index={12}>{getPercentage(totals.final2, 40, 40, true)}%</Table.Summary.Cell>
+          <Table.Summary.Cell index={13}>{getPercentage(totals.final3, 40, 40, true)}%</Table.Summary.Cell>
+          <Table.Summary.Cell index={14}>{getPercentage(totals.total, 100, 100)}%</Table.Summary.Cell>
+          <Table.Summary.Cell index={15}>{getPercentage(totals.overallTotal, 100, 100)}%</Table.Summary.Cell>
+          <Table.Summary.Cell index={16}></Table.Summary.Cell>
+        </Table.Summary.Row>
+
+        <Table.Summary.Row>
+          <Table.Summary.Cell index={0}>NORMALIZE</Table.Summary.Cell>
+          <Table.Summary.Cell index={1}>{normalize(totals.quiz1, 10)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={2}>{normalize(totals.quiz2, 10)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={3}>{normalize(totals.quiz3, 10)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={4}>{normalize(totals.assignment1, 20)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={5}>{normalize(totals.assignment2, 20)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={6}>{normalize(totals.assignment3, 20)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={7}>{normalize(totals.test1, 20)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={8}>{normalize(totals.test2, 20)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={9}>{normalize(totals.test3, 20)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={10}>{normalize(totals.carryMarks, 60)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={11}>{normalize(totals.final1, 40)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={12}>{normalize(totals.final2, 40)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={13}>{normalize(totals.final3, 40)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={14}>{normalize(totals.total, 100)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={15}>{normalize(totals.overallTotal, 100)}</Table.Summary.Cell>
+          <Table.Summary.Cell index={16}></Table.Summary.Cell>
         </Table.Summary.Row>
       </Table.Summary>
     );
@@ -697,7 +752,7 @@ export default function Markentry() {
           pagination={false}
           bordered
           summary={summary}
-          scroll={{ x: 'max-content' }}
+          scroll={{ x: 'max-content', y: 'calc(100vh - 450px)' }}
         />
       </Card>
     </main>
